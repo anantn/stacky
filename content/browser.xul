@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE overlay SYSTEM "chrome://browser/locale/browser.dtd" >
+<overlay xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+         id="stacky-overlay">
+
+    <popupset id="mainPopupSet">
+        <menupopup id="tabContextMenu">
+            <menuseperator/>
+            <menuitem id="context_createStack"
+                      label="Create Stack"
+                      oncommand="gBrowser.Stacky.createStack(TabContextMenu.contextTab);"/>
+        </menupopup>
+    </popupset>
+</overlay>
+

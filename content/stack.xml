@@ -1,0 +1,197 @@
+<?xml version="1.0"?>
+<!DOCTYPE bindings [
+<!ENTITY % tabBrowserDTD SYSTEM "chrome://browser/locale/tabbrowser.dtd">
+%tabBrowserDTD;
+]>
+
+<bindings id="stackBindings"
+          xmlns="http://www.mozilla.org/xbl"
+          xmlns:xul="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+          xmlns:xbl="http://www.mozilla.org/xbl">
+
+  <binding id="stacky-tab" display="xul:hbox"
+           extends="chrome://global/content/bindings/tabbox.xml#tab">
+    <resources>
+      <stylesheet src="chrome://browser/content/tabbrowser.css"/>
+    </resources>
+
+    <content context="tabContextMenu" closetabtext="&closeTab.label;">
+      <xul:stack class="tab-stack" flex="1">
+        <xul:hbox xbl:inherits="pinned,selected,titlechanged"
+                  class="tab-background">
+          <xul:hbox xbl:inherits="pinned,selected,titlechanged"
+                    class="tab-background-start"/>
+          <xul:hbox xbl:inherits="pinned,selected,titlechanged"
+                    class="tab-background-middle"/>
+          <xul:hbox xbl:inherits="pinned,selected,titlechanged"
+                    class="tab-background-end"/>
+        </xul:hbox>
+        <xul:hbox xbl:inherits="pinned,selected,titlechanged"
+                  class="tab-content" align="center">
+          <xul:label xbl:inherits="crop,fadein,pinned,selected"
+                     class="stack-count"
+                     value="0"
+                     role="presentation"/>
+          <xul:label class="stack-icon"
+                     value="+" collapsed="true"/>
+          <xul:label flex="1"
+                     xbl:inherits="crop,accesskey,fadein,pinned,selected"
+                     class="tab-text tab-label"
+                     value="Group"
+                     role="presentation"/>
+          <xul:textbox flex="1"
+                       class="stack-edit"
+                       value="Group"
+                       collapsed="true"/>
+          <xul:toolbarbutton anonid="close-button"
+                             xbl:inherits="fadein,pinned,selected"
+                             tabindex="-1"
+                             clickthrough="never"
+                             class="tab-close-button"/>
+        </xul:hbox>
+      </xul:stack>
+    </content>
+
+    <implementation>
+      <property name="pinned" readonly="true">
+        <getter>
+          return this.getAttribute("pinned") == "true";
+        </getter>
+      </property>
+      <property name="hidden" readonly="true">
+        <getter>
+          return this.getAttribute("hidden") == "true";
+        </getter>
+      </property>
+
+      <field name="mOverCloseButton">false</field>
+      <field name="mCorrespondingMenuitem">null</field>
+      <field name="mLabel">
+        document.getAnonymousElementByAttribute(this, "class", "tab-text tab-label");
+      </field>
+      <field name="mEditbox">
+        document.getAnonymousElementByAttribute(this, "class", "stack-edit");
+      </field>
+      <field name="mCounter">
+        document.getAnonymousElementByAttribute(this, "class", "stack-count");
+      </field>
+      <field name="mStackIcon">
+        document.getAnonymousElementByAttribute(this, "class", "stack-icon");
+      </field>
+
+      <method name="editLabel">
+        <body><![CDATA[
+          this.mLabel.collapsed = true;
+          this.mEditbox.collapsed = false;
+          this.mEditbox.focus();
+          this.mEditbox.select();
+        ]]></body>
+      </method>
+      <method name="doneLabel">
+        <body><![CDATA[
+          let label = this.mEditbox.value.trim();
+          if (!label)
+            return;
+          this.mLabel.value = label;
+          this.mLabel.collapsed = false;
+          this.mEditbox.collapsed = true;
+        ]]></body>
+      </method>
+    </implementation>
+
+    <handlers>
+
+      <handler event="mouseover"><![CDATA[
+        var anonid = event.originalTarget.getAttribute("anonid");
+        if (anonid == "close-button")
+          this.mOverCloseButton = true;
+      ]]></handler>
+
+      <handler event="mouseout"><![CDATA[
+        var anonid = event.originalTarget.getAttribute("anonid");
+        if (anonid == "close-button")
+          this.mOverCloseButton = false;
+      ]]></handler>
+
+      <handler event="dragstart" phase="capturing"><![CDATA[
+        this.style.MozUserFocus = '';
+      ]]></handler>
+
+      <handler event="dragenter"><![CDATA[
+        if (event.dataTransfer.types.contains("application/x-moz-tabbrowser-tab")) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+            event.dataTransfer.effectAllowed = "move";
+
+            this.mCounter.collapsed = true;
+            this.mStackIcon.collapsed = false;
+        }
+      ]]></handler>
+
+      <handler event="dragover"><![CDATA[
+        if (event.dataTransfer.types.contains("application/x-moz-tabbrowser-tab")) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+            event.dataTransfer.effectAllowed = "move";
+        }
+      ]]></handler>
+
+      <handler event="drop"><![CDATA[
+        let tab = event.dataTransfer.mozGetDataAt("application/x-moz-tabbrowser-tab", 0);
+        document.defaultView.gBrowser.Stacky.addTabToStack(tab, this);
+        this.mStackIcon.collapsed = true;
+        this.mCounter.collapsed = false;
+ 
+        event.preventDefault();
+      ]]></handler>
+
+      <handler event="dragleave"><![CDATA[
+        this.mStackIcon.collapsed = true;
+        this.mCounter.collapsed = false;
+      ]]></handler>
+
+      <handler event="mousedown" button="0" phase="capturing"><![CDATA[
+        if (this.mOverCloseButton) {
+          event.stopPropagation();
+        } else {
+          this.style.MozUserFocus = 'ignore';
+          this.clientTop; // just using this to flush style updates
+        }
+      ]]></handler>
+
+      <handler event="mousedown" button="1"><![CDATA[
+        this.style.MozUserFocus = 'ignore';
+        this.clientTop;
+      ]]></handler>
+
+      <handler event="mousedown" button="2"><![CDATA[
+        this.style.MozUserFocus = 'ignore';
+        this.clientTop;
+      ]]></handler>
+
+      <handler event="mouseup"><![CDATA[
+        this.style.MozUserFocus = '';
+      ]]></handler>
+
+      <handler event="dblclick"><![CDATA[
+        if (event.originalTarget === this.mLabel) {
+          this.editLabel();
+        }
+      ]]></handler>
+
+      <handler event="keypress"><![CDATA[
+        if (event.keyCode == event.DOM_VK_ENTER ||
+            event.keyCode == event.DOM_VK_RETURN ||
+            event.keyCode == event.DOM_VK_ESCAPE) {
+            this.doneLabel();
+        }
+      ]]></handler>
+
+      <handler event="blur"><![CDATA[
+        this.doneLabel();
+      ]]></handler>
+
+    </handlers>
+  </binding>
+</bindings>
+
