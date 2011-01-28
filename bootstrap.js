@@ -18,7 +18,7 @@
  * the Initial Developer. All Rights Reserved.
  *
  * Contributor(s):
- *	Anant Narayanan <anant@mozilla.com>
+ *	Anant Narayanan <anant@kix.in>
  *
  * Alternatively, the contents of this file may be used under the terms of
  * either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -40,63 +40,68 @@ Cu.import("resource://gre/modules/AddonManager.jsm");
 
 function Stacky(win, add)
 {
-    this._addon = add;
-    this._window = win;
-    let uri = this._addon.getResourceURI("content/browser.xul").spec;
-    this._window.document.loadOverlay(uri, this);
-
-    // Create catch-all group   
-    this._groups = [];
-    this._activeGroup = null;
-    this._ungrouped = this.createGroup();
-    this._window.gBrowser.hideTab(this._ungrouped);
+  this._groups = [];
+  this._addon = add;
+  this._window = win;
+  this._activeGroup = null;
+  let bindingUri = add.getResourceURI("content/stack.xml").spec;
+  
+  // Apply binding to tabs already open
+  let browser = win.gBrowser;
+  for (let i = 0; i < browser.tabs.length; i++) {
+    browser.tabs[i].style.MozBinding = "url(" + bindingUri + "#stacky-tab)";
+  }
+  
+  // Listen for TabOpen events so we can apply our special tab binding
+  browser.tabContainer.addEventListener("TabOpen", function tabAdded(event) {
+    event.target.style.MozBinding = "url(" + bindingUri + "#stacky-tab)";
+  }, false);
 }
 Stacky.prototype = {
-    createGroup: function() {
-        let grp = this._window.gBrowser.addTab();
-        let uri = this._addon.getResourceURI("content/stack.xml").spec;
-        grp.style.MozBinding = "url(" + uri + "#stacky-tab)";
-        
-        grp._tabs = [];
-        this._groups.push(grp);
-        return grp;
-    },
-
-    createStack: function(tab) {
-        this._window.alert(tab.class + tab.id);
-        let grp = this.createGroup();
-        this.addTabToStack(tab, grp);
-    },
-
-    addTabToStack: function(tab, group) {
-        let present = !group._tabs.every(function(el, idx, ar) {
-            return (el !== tab);
-        });
-        
-        if (present) return;
-        group._tabs.push(tab);
+  // Only way to create a stack is to drop one tab on top of another
+  // The internal representation of a 'stack' is group
+  createStack: function(tab1, tab2) {
+    let grp = this._window.gBrowser.addTab();
+    let uri = this._addon.getResourceURI("content/stack.xml").spec;
+    grp.style.MozBinding = "url(" + uri + "#stacky-group)";
     
-        // XBL may not have been applied yet
-        let self = this;
-        function doTabMove() {
-            if (typeof group.mCounter === "undefined") {
-                self._window.setTimeout(doTabMove, 10);
-                return;
-            }
-            group.mCounter.value = group._tabs.length;
-            self.activateStackWithTab(group, tab);
-        }
-        doTabMove();
-    },
+    grp._tabs = [];
+    grp.isGroup = true;
+    this._groups.push(grp);
+    this.addTabToStack(tab1, grp);
+    this.addTabToStack(tab2, grp);
+  },
 
-    activateStackWithTab: function(group, tab) {
-        this._window.gBrowser.selectedTab = group;
-        tab.style.display = "none";
-    },
-
-    observe: function(subject, topic, data) {
-        dump("received " + subject + " & " + topic + "\n");
+  addTabToStack: function(tab, group) {
+    let present = !group._tabs.every(function(el, idx, ar) {
+      return (el !== tab);
+    });
+    
+    if (present) return;
+    group._tabs.push(tab);
+  
+    // XBL may not have been applied yet
+    let self = this;
+    function doTabMove() {
+      if (typeof group.mCounter === "undefined") {
+        self._window.setTimeout(doTabMove, 10);
+        return;
+      }
+      group.mCounter.value = group._tabs.length;
+      tab.style.display = "none";
+      //self.activateStackWithTab(group, tab);
     }
+    doTabMove();
+  },
+
+  activateStackWithTab: function(group, tab) {
+    this._window.gBrowser.selectedTab = group;
+    tab.style.display = "none";
+  },
+
+  observe: function(subject, topic, data) {
+    dump("received " + subject + " & " + topic + "\n");
+  }
 };
 
 
@@ -106,28 +111,28 @@ Stacky.prototype = {
 let unloaders = [];
 function startup(data, reason)
 {
-    function winWatcher(subject, topic) {
-        if (topic != "domwindowopened")
-            return;
+  function winWatcher(subject, topic) {
+    if (topic != "domwindowopened")
+      return;
 
-        subject.addEventListener("load", function() {
-            subject.removeEventListener("load", arguments.callee, false);
-            let doc = subject.document.documentElement;
-            if (doc.getAttribute("windowtype") == "navigator:browser") {
-                AddonManager.getAddonByID("stacky@labs.mozilla", function(addon) {
-                    subject.gBrowser.Stacky = new Stacky(subject, addon);
-                });
-            }
-        }, false);
-    }
-    Services.ww.registerNotification(winWatcher);
-    unloaders.push(function() Services.ww.unregisterNotification(winWatcher));
+    subject.addEventListener("load", function() {
+      subject.removeEventListener("load", arguments.callee, false);
+      let doc = subject.document.documentElement;
+      if (doc.getAttribute("windowtype") == "navigator:browser") {
+        AddonManager.getAddonByID("stacky@labs.mozilla", function(addon) {
+          subject.gBrowser.Stacky = new Stacky(subject, addon);
+        });
+      }
+    }, false);
+  }
+  Services.ww.registerNotification(winWatcher);
+  unloaders.push(function() Services.ww.unregisterNotification(winWatcher));
 }
 
 function shutdown(data, reason)
 {
-    if (reason !== APP_SHUTDOWN)
-        unloaders.forEach(function(unload) unload && unload());
+  if (reason !== APP_SHUTDOWN)
+    unloaders.forEach(function(unload) unload && unload());
 }
 
 function install()
