@@ -46,6 +46,10 @@ function Stacky(win, add)
   this._activeGroup = null;
   let bindingUri = add.getResourceURI("content/stack.xml").spec;
   
+  // Apply binding to tab strip of current window
+  let tabstrip = win.document.getElementById("tabbrowser-tabs");
+  tabstrip.style.MozBinding = "url(" + bindingUri + "#stacky-tabs)";
+  
   // Apply binding to tabs already open
   let browser = win.gBrowser;
   for (let i = 0; i < browser.tabs.length; i++) {
